@@ -1,6 +1,7 @@
 dirsearch --follow-redirects --full-url  -u "x" -r
 sudo nmap -Pn -sS -sV -oA "tcp-scan-1000-X" "x"
 sud nmap -p 21 --script ftp-anon "X"
+sqlmap --batch -u "X"
 cmseek --url "x"
 sslscan "X"
 wafw00f "x"
