@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube 影片播放器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column; /* 讓標題和影片垂直排列 */
+            align-items: center;
+            justify-content: center; /* 垂直居中內容 (如果頁面夠高) */
+            min-height: 100vh; /* 確保 body 至少和視窗一樣高 */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #video-title-display {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #youtube-iframe-container {
+            /* iframe 預設有寬高，但我們可以加個背景或邊框讓它看起來更清晰 */
+            background-color: #000; /* 影片載入前的黑色背景 */
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            /* 讓 iframe 本身的寬高屬性生效 */
+        }
+        .message {
+            font-size: 1.2em;
+            color: #555;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h2 id="video-title-display">YouTube 影片</h2>
+    <div id="youtube-iframe-container">
+        <!-- 標準 YouTube iframe 將會插入這裡 -->
+        <p class="message" id="player-message">正在等待影片ID...</p>
+    </div>
+
+    <script>
+        // (可選) 如果您想顯示影片標題，仍然需要 API 金鑰
+        // 如果不需要標題，可以移除這部分及相關的 fetchVideoTitle 函數
+        const API_KEY_FOR_TITLE = ''; // 選擇性填入您的 YouTube Data API v3 金鑰
+
+        const videoTitleDisplay = document.getElementById('video-title-display');
+        const iframeContainer = document.getElementById('youtube-iframe-container');
+        const playerMessage = document.getElementById('player-message');
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const videoId = urlParams.get('videoId');
+
+            if (videoId) {
+                playerMessage.style.display = 'none'; // 隱藏等待訊息
+
+                // 基礎的 iframe 來源 URL
+                const iframeSrc = `https://www.youtube.com/embed/${videoId}`;
+                // 您可以加上 ?autoplay=1 讓影片自動播放 (如果瀏覽器允許)
+                // const iframeSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+
+                // 完整的 iframe HTML 結構，使用您提供的格式
+                // 注意：YouTube 的分享代碼中的 ?si=... 參數是分享追蹤用的，對於基本播放不是必需的。
+                // 如果您堅持要加入，它通常是動態且唯一的，較難在這裡固定生成一個有意義的。
+                // 為了簡單和通用性，通常只用 `https://www.youtube.com/embed/VIDEO_ID`
+                const iframeHtml = `
+                    <iframe width="560" height="315"
+                            src="${iframeSrc}"
+                            title="YouTube video player"
+                            frameborder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerpolicy="strict-origin-when-cross-origin"
+                            allowfullscreen>
+                    </iframe>`;
+
+                iframeContainer.innerHTML = iframeHtml;
+
+                // (可選) 獲取並顯示影片標題
+                if (API_KEY_FOR_TITLE && API_KEY_FOR_TITLE.trim() !== '') {
+                    fetchVideoTitle(videoId);
+                } else {
+                    videoTitleDisplay.textContent = "影片播放";
+                }
+
+            } else {
+                videoTitleDisplay.textContent = "錯誤";
+                playerMessage.textContent = '錯誤：網址中未提供 videoId。請使用 ?videoId=影片ID 的格式。';
+                playerMessage.style.color = 'red';
+            }
+        };
+
+        async function fetchVideoTitle(videoId) {
+            if (!API_KEY_FOR_TITLE) return; // 如果沒有金鑰，直接返回
+
+            videoTitleDisplay.textContent = "正在載入標題...";
+            const videoInfoUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${API_KEY_FOR_TITLE}`;
+            try {
+                const response = await fetch(videoInfoUrl);
+                if (!response.ok) {
+                    console.warn(`無法獲取影片標題 (API): ${response.status}`);
+                    videoTitleDisplay.textContent = "影片播放 (無法載入標題)";
+                    return;
+                }
+                const data = await response.json();
+                if (data.items && data.items.length > 0) {
+                    videoTitleDisplay.textContent = data.items[0].snippet.title;
+                } else {
+                    videoTitleDisplay.textContent = "影片播放 (標題未找到)";
+                }
+            } catch (error) {
+                console.error("獲取影片標題失敗:", error);
+                videoTitleDisplay.textContent = "影片播放 (無法載入標題)";
+            }
+        }
+    </script>
+</body>
+</html>

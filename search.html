@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>影片搜尋</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 800px; margin: 20px auto; }
+        h1 { color: #007bff; text-align: center; }
+        input[type="text"] { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; box-sizing: border-box; }
+        button:hover { background-color: #0056b3; }
+        #results-container { margin-top: 20px; max-height: 500px; overflow-y: auto; border: 1px solid #eee; padding: 0; } /* Removed default padding for items */
+        .search-result-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #f0f0f0; cursor: pointer; background-color: #fff; }
+        .search-result-item:hover { background-color: #e9ecef; }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-item img { width: 120px; height: 90px; object-fit: cover; margin-right: 15px; border-radius: 4px; border: 1px solid #ddd; }
+        .search-result-item .info { flex-grow: 1; }
+        .search-result-item .title { font-weight: bold; font-size: 1em; color: #333; margin-bottom: 5px; }
+        .search-result-item .channel { font-size: 0.85em; color: #666; }
+        .status-message { font-size: 0.9em; padding: 8px; margin-top: 10px; border-radius: 4px; text-align: center; }
+        .status-error { color: #D8000C; background-color: #FFD2D2; }
+        .api-key-notice { background-color: #fff3cd; color: #856404; padding: 10px; border: 1px solid #ffeeba; border-radius: 4px; margin-bottom: 15px; font-size: 0.9em; }
+        .api-key-notice a { color: #0056b3; font-weight: bold; }
+        .player-page-link-info {
+            font-size: 0.9em;
+            color: #555;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e9e9e9;
+            border-radius: 4px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>影片搜尋</h1>
+
+        <div class="api-key-notice">
+            <strong>重要：</strong> 請在下方的 JavaScript 程式碼中填入您自己的 YouTube Data API v3 金鑰。
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">取得 API 金鑰</a>。
+        </div>
+
+        <div>
+            <label for="search-query">輸入搜尋關鍵字：</label>
+            <input type="text" id="search-query" placeholder="例如：風景、音樂、教學...">
+            <button id="search-button" onclick="searchVideos()">搜尋影片</button>
+            <div id="search-status"></div>
+        </div>
+
+        <div id="results-container">
+            <p style="text-align:center; color:#777; padding: 20px;">搜尋結果將顯示於此處。</p>
+        </div>
+
+        <div class="player-page-link-info">
+            點擊搜尋結果中的影片，將在新視窗中開啟播放頁面 (<code>player.html</code>)。
+        </div>
+    </div>
+
+    <script>
+        // !!! 請將 YOUR_API_KEY 替換為您自己的 YouTube Data API v3 金鑰 !!!
+        const API_KEY = '貼在這裡'; // <--- 在這裡填入您的 API 金鑰
+        const PLAYER_PAGE_URL = 'player.html'; // 您的播放頁面檔案名稱
+
+        const searchQueryInput = document.getElementById('search-query');
+        const resultsContainer = document.getElementById('results-container');
+        const searchStatus = document.getElementById('search-status');
+
+        function showSearchStatus(message, type = 'info') {
+            searchStatus.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            setTimeout(() => { searchStatus.innerHTML = ''; }, 5000);
+        }
+
+        async function searchVideos() {
+            const query = searchQueryInput.value.trim();
+            resultsContainer.innerHTML = '<p style="text-align:center; color:#777; padding: 20px;">正在搜尋...</p>';
+            searchStatus.innerHTML = '';
+
+            if (!query) {
+                showSearchStatus('請輸入搜尋關鍵字。', 'error');
+                resultsContainer.innerHTML = '<p style="text-align:center; color:red; padding: 20px;">請輸入搜尋關鍵字。</p>';
+                return;
+            }
+
+            if (API_KEY === 'YOUR_API_KEY') {
+                showSearchStatus('請先在 JavaScript 中設定您的 YouTube API 金鑰。', 'error');
+                resultsContainer.innerHTML = '<p style="text-align:center; color:red; padding: 20px;">API 金鑰未設定。</p>';
+                return;
+            }
+
+            const maxResults = 15;
+            const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=${maxResults}&key=${API_KEY}`;
+
+            try {
+                const response = await fetch(searchUrl);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('YouTube API Error:', errorData);
+                    let errorMessage = `搜尋失敗 (${response.status})`;
+                    if (errorData.error && errorData.error.message) {
+                        errorMessage += `: ${errorData.error.message}`;
+                    }
+                    showSearchStatus(errorMessage, 'error');
+                    resultsContainer.innerHTML = `<p style="text-align:center; color:red; padding: 20px;">${errorMessage}</p>`;
+                    return;
+                }
+                const data = await response.json();
+                displaySearchResults(data.items);
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                showSearchStatus('搜尋時發生網路錯誤。', 'error');
+                resultsContainer.innerHTML = '<p style="text-align:center; color:red; padding: 20px;">網路錯誤。</p>';
+            }
+        }
+
+        function displaySearchResults(items) {
+            resultsContainer.innerHTML = ''; // 清空
+
+            if (!items || items.length === 0) {
+                resultsContainer.innerHTML = '<p style="text-align:center; color:#777; padding: 20px;">找不到相關影片。</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const videoId = item.id.videoId;
+                const title = item.snippet.title;
+                const channelTitle = item.snippet.channelTitle;
+                const thumbnailUrl = item.snippet.thumbnails.medium ? item.snippet.thumbnails.medium.url : item.snippet.thumbnails.default.url;
+
+                const resultElement = document.createElement('div');
+                resultElement.classList.add('search-result-item');
+                resultElement.innerHTML = `
+                    <img src="${thumbnailUrl}" alt="影片縮圖">
+                    <div class="info">
+                        <div class="title" title="${title}">${escapeHtml(title)}</div>
+                        <div class="channel">${escapeHtml(channelTitle)}</div>
+                    </div>
+                `;
+                resultElement.onclick = () => {
+                    // 組合帶有 videoId 的 URL 並在新視窗中開啟
+                    const urlToOpen = `${PLAYER_PAGE_URL}?videoId=${encodeURIComponent(videoId)}`;
+                    window.open(urlToOpen, '_blank'); // '_blank' 會開啟新視窗或新分頁
+                };
+                resultsContainer.appendChild(resultElement);
+            });
+        }
+
+        // 簡易 HTML 特殊字元跳脫函式，防止 XSS (雖然這裡主要顯示 API 來的資料，但好習慣)
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return '';
+            return unsafe
+                 .replace(/&/g, "&")
+                 .replace(/</g, "<")
+                 .replace(/>/g, ">")
+                 .replace(/"/g, "\"")
+                 .replace(/'/g, "'");
+        }
+
+        searchQueryInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                searchVideos();
+            }
+        });
+    </script>
+</body>
+</html>
+
