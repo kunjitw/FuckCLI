@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube 影片播放器 (ID輸入與貼上)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            max-width: 800px;
+            margin: 20px auto;
+        }
+        h1 {
+            color: #d32f2f;
+            text-align: center;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 10px; /* Reduced margin for button group */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .button-group {
+            display: flex; /* Arrange buttons side-by-side */
+            gap: 10px; /* Space between buttons */
+            margin-bottom: 15px;
+        }
+        button {
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            flex-grow: 1; /* Make buttons share space equally */
+            box-sizing: border-box;
+        }
+        button#show-button {
+             background-color: #d32f2f; /* YouTube Red */
+        }
+        button#show-button:hover {
+            background-color: #b71c1c;
+        }
+        button#paste-button {
+            background-color: #4CAF50; /* Green */
+        }
+        button#paste-button:hover {
+            background-color: #45a049;
+        }
+
+        #video-container {
+            margin-top: 25px;
+            border: 1px solid #ddd;
+            background-color: #000;
+        }
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            max-width: 100%;
+            background: #000;
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .instructions {
+            font-size: 0.9em;
+            color: #555;
+            margin-bottom: 15px;
+            background-color: #e9e9e9;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .instructions code {
+            background-color: #d1d1d1;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .status-message {
+            font-size: 0.9em;
+            padding: 8px;
+            margin-top: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .status-error {
+            color: #D8000C;
+            background-color: #FFD2D2;
+        }
+        .status-info {
+            color: #00529B;
+            background-color: #BDE5F8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube 影片播放器</h1>
+
+        <div class="instructions">
+            <p>請在下方輸入 YouTube 影片的 <strong>ID</strong>，或直接點擊「貼上並顯示」按鈕。</p>
+            <p>例如，影片 ID 可能是 <code>XQ62CNvkI0w</code>。</p>
+        </div>
+
+        <label for="youtube-id">YouTube 影片 ID：</label>
+        <input type="text" id="youtube-id" placeholder="例如：XQ62CNvkI0w">
+
+        <div class="button-group">
+            <button id="paste-button" onclick="pasteAndShowVideo()">貼上並顯示</button>
+            <button id="show-button" onclick="displayVideoById()">顯示影片 (手動輸入後)</button>
+        </div>
+        <div id="status-area"></div> <!-- For status messages -->
+
+        <h2>影片預覽：</h2>
+        <div id="video-container">
+            <p style="text-align:center; color:#777; padding: 20px;">輸入ID並點擊按鈕後，影片會顯示於此處。</p>
+        </div>
+    </div>
+
+    <script>
+        const videoIdInput = document.getElementById('youtube-id');
+        const videoContainer = document.getElementById('video-container');
+        const statusArea = document.getElementById('status-area');
+
+        function showStatus(message, type = 'info') {
+            statusArea.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            // Clear status after a few seconds
+            setTimeout(() => {
+                statusArea.innerHTML = '';
+            }, 5000);
+        }
+
+        async function pasteAndShowVideo() {
+            statusArea.innerHTML = ''; // Clear previous status
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                try {
+                    const textFromClipboard = await navigator.clipboard.readText();
+                    videoIdInput.value = ''; // 清空輸入框
+                    videoIdInput.value = textFromClipboard.trim(); // 貼上剪貼簿內容並移除前後空白
+                    if (videoIdInput.value) {
+                        showStatus('已從剪貼簿貼上內容。', 'info');
+                        displayVideoById(); // 自動顯示影片
+                    } else {
+                        showStatus('剪貼簿是空的，或只包含空白字元。', 'error');
+                        videoContainer.innerHTML = '<p style="text-align:center; color:orange; padding: 20px;">剪貼簿是空的，請手動輸入ID。</p>';
+                    }
+                } catch (err) {
+                    console.error('無法讀取剪貼簿：', err);
+                    showStatus('無法讀取剪貼簿。請確認已授予權限，或手動輸入ID。 <br>錯誤訊息: ' + err.message, 'error');
+                    videoContainer.innerHTML = '<p style="text-align:center; color:red; padding: 20px;">讀取剪貼簿失敗，請手動輸入ID。</p>';
+                }
+            } else {
+                showStatus('您的瀏覽器不支援自動貼上功能，請手動複製貼上。', 'error');
+                videoContainer.innerHTML = '<p style="text-align:center; color:red; padding: 20px;">瀏覽器不支援自動貼上，請手動輸入ID。</p>';
+            }
+        }
+
+        function displayVideoById() {
+            statusArea.innerHTML = ''; // Clear previous status
+            const videoId = videoIdInput.value.trim();
+
+            if (videoId === "") {
+                videoContainer.innerHTML = '<p style="text-align:center; color:red; padding: 20px;">請先輸入 YouTube 影片 ID！</p>';
+                return;
+            }
+
+            if (!/^[a-zA-Z0-9_-]{10,12}$/.test(videoId)) {
+                // 警告但仍嘗試載入
+                // showStatus('影片 ID 格式似乎不正確，但仍會嘗試載入。', 'error');
+                 console.warn("影片 ID 格式可能不正確: " + videoId);
+            }
+
+            const iframeSrc = `https://www.youtube.com/embed/${videoId}`;
+            const iframeHtml = `
+                <div class="video-wrapper">
+                    <iframe
+                        src="${iframeSrc}"
+                        title="YouTube video player"
+                        frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerpolicy="strict-origin-when-cross-origin"
+                        allowfullscreen>
+                    </iframe>
+                </div>`;
+            videoContainer.innerHTML = iframeHtml;
+        }
+    </script>
+
+</body>
+</html>
